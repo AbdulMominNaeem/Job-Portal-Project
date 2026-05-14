@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); node --version; npm --version)",
+      "PowerShell($env:Path = \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin;\" + $env:Path; mysql --version)",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\MariaDB 12.2\\\\bin\" | Where-Object { $_.Name -in @\\(\"mariadbd.exe\",\"mariadb.exe\",\"mysqld.exe\",\"mysql.exe\",\"mariadb-install-db.exe\",\"mysql_install_db.exe\"\\) } | Select-Object Name)",
+      "Bash(\"/c/Program Files/MariaDB 12.2/bin/mariadbd.exe\" --defaults-file=\"E:/Claude Project/.mariadb/my.ini\" --console)",
+      "Bash(echo \"Started PID $!\")",
+      "Bash(node src/server.js)",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(disown)",
+      "Bash(npx vite *)",
+      "Bash(echo \"Frontend PID: $!\")",
+      "PowerShell(Start-Sleep -Seconds 6; try { $r = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 5; \"Status: $\\($r.StatusCode\\) Length: $\\($r.Content.Length\\)\" } catch { \"Frontend not yet up: $_\" }; Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | Format-Table -AutoSize)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}

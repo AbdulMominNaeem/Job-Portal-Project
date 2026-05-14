@@ -1,0 +1,270 @@
+// Prisma schema for the Job Portal
+// Database: Microsoft SQL Server (managed via SSMS 22)
+// Run: npx prisma migrate dev --name init
+//
+// Notes for the SQL Server connector (Prisma 5.x):
+//   * Native enums are NOT supported — we use String columns and validate at the
+//     API layer with Zod (see backend/src/controllers/*).  Allowed values are
+//     documented next to each field.
+//   * Multi-path cascade deletes are forbidden by SQL Server, so on
+//     Application/SavedJob/Job we set the secondary FK to NoAction.  The app
+//     uses soft-deletes so this never triggers in practice.
+//   * Unique- and indexed- string columns get explicit @db.NVarChar(190) so
+//     they fit the 900-byte SQL Server index key limit.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int        @id @default(autoincrement())
+  email         String     @unique @db.NVarChar(190)
+  passwordHash  String     @db.NVarChar(255)
+  // Allowed values: CANDIDATE, EMPLOYER, ADMIN
+  role          String     @db.NVarChar(20)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  candidate     Candidate?
+  employer      Employer?
+  notifications Notification[]
+
+  @@index([role])
+}
+
+model Candidate {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName      String
+  headline      String?
+  bio           String?   @db.NVarChar(Max)
+  phone         String?
+  location      String?   @db.NVarChar(190)
+  profilePic    String?
+  resumeUrl     String?
+  websiteUrl    String?
+  linkedinUrl   String?
+  githubUrl     String?
+
+  educations    Education[]
+  experiences   Experience[]
+  certifications Certification[]
+  candidateSkills CandidateSkill[]
+  applications  Application[]
+  savedJobs     SavedJob[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([location])
+}
+
+model Employer {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName    String
+  jobTitle    String?
+  phone       String?
+
+  companyId   Int?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  postedJobs  Job[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Company {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.NVarChar(190)
+  slug        String    @unique @db.NVarChar(190)
+  description String?   @db.NVarChar(Max)
+  website     String?
+  logoUrl     String?
+  industry    String?   @db.NVarChar(190)
+  size        String?
+  location    String?
+
+  employers   Employer[]
+  jobs        Job[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([name])
+  @@index([industry])
+}
+
+model Skill {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.NVarChar(190)
+  slug        String    @unique @db.NVarChar(190)
+
+  candidateSkills CandidateSkill[]
+  jobSkills       JobSkill[]
+}
+
+model CandidateSkill {
+  candidateId Int
+  skillId     Int
+  level       String?
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  skill       Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([candidateId, skillId])
+  @@index([skillId])
+}
+
+model JobSkill {
+  jobId     Int
+  skillId   Int
+  required  Boolean @default(true)
+  // NoAction on job to avoid multi-path cascade with Skill (SQL Server limit)
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, skillId])
+  @@index([skillId])
+}
+
+model Education {
+  id          Int       @id @default(autoincrement())
+  candidateId Int
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  school      String
+  degree      String?
+  fieldOfStudy String?
+  startDate   DateTime?
+  endDate     DateTime?
+  description String?   @db.NVarChar(Max)
+}
+
+model Experience {
+  id          Int       @id @default(autoincrement())
+  candidateId Int
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  company     String
+  title       String
+  location    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  current     Boolean   @default(false)
+  description String?   @db.NVarChar(Max)
+}
+
+model Certification {
+  id          Int       @id @default(autoincrement())
+  candidateId Int
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  name        String
+  issuer      String?
+  issuedAt    DateTime?
+  expiresAt   DateTime?
+  credentialUrl String?
+}
+
+model Job {
+  id              Int             @id @default(autoincrement())
+  title           String          @db.NVarChar(190)
+  slug            String          @unique @db.NVarChar(190)
+  description     String          @db.NVarChar(Max)
+  category        String?         @db.NVarChar(190)
+  location        String?         @db.NVarChar(190)
+  // Allowed values: REMOTE, ONSITE, HYBRID
+  jobMode         String          @default("ONSITE") @db.NVarChar(20)
+  // Allowed values: FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP, TEMPORARY
+  jobType         String          @default("FULL_TIME") @db.NVarChar(20)
+  // Allowed values: ENTRY, JUNIOR, MID, SENIOR, LEAD, EXECUTIVE
+  experienceLevel String          @default("MID") @db.NVarChar(20)
+  salaryMin       Int?
+  salaryMax       Int?
+  currency        String          @default("USD") @db.NVarChar(10)
+  // Allowed values: DRAFT, PUBLISHED, CLOSED, REMOVED
+  status          String          @default("PUBLISHED") @db.NVarChar(20)
+  applicationDeadline DateTime?
+
+  companyId       Int
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  postedById      Int
+  // NoAction to avoid Company→Job double-cascade with Employer
+  postedBy        Employer        @relation(fields: [postedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  jobSkills       JobSkill[]
+  applications    Application[]
+  savedBy         SavedJob[]
+
+  views           Int             @default(0)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+
+  @@index([title])
+  @@index([location])
+  @@index([category])
+  @@index([status])
+  @@index([jobMode])
+  @@index([jobType])
+  @@index([experienceLevel])
+}
+
+model Application {
+  id          Int       @id @default(autoincrement())
+  jobId       Int
+  candidateId Int
+  // Allowed values: APPLIED, UNDER_REVIEW, INTERVIEW, REJECTED, HIRED, WITHDRAWN
+  status      String    @default("APPLIED") @db.NVarChar(20)
+  coverLetter String?   @db.NVarChar(Max)
+  resumeUrl   String?
+  notes       String?   @db.NVarChar(Max)
+
+  // NoAction on job to break the User→Application multi-path cycle
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([status])
+}
+
+model SavedJob {
+  candidateId Int
+  jobId       Int
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  // NoAction on job to break the User→SavedJob multi-path cycle
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  savedAt     DateTime  @default(now())
+
+  @@id([candidateId, jobId])
+  @@index([jobId])
+}
+
+model Notification {
+  id        Int               @id @default(autoincrement())
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Allowed values: APPLICATION_UPDATE, NEW_MATCHING_JOB, INTERVIEW_INVITE, SYSTEM
+  type      String            @db.NVarChar(40)
+  title     String
+  message   String            @db.NVarChar(Max)
+  link      String?
+  read      Boolean           @default(false)
+  createdAt DateTime          @default(now())
+
+  @@index([userId, read])
+}
