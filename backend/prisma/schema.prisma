@@ -1,32 +1,19 @@
-// Prisma schema for the Job Portal
-// Database: Microsoft SQL Server (managed via SSMS 22)
-// Run: npx prisma migrate dev --name init
-//
-// Notes for the SQL Server connector (Prisma 5.x):
-//   * Native enums are NOT supported — we use String columns and validate at the
-//     API layer with Zod (see backend/src/controllers/*).  Allowed values are
-//     documented next to each field.
-//   * Multi-path cascade deletes are forbidden by SQL Server, so on
-//     Application/SavedJob/Job we set the secondary FK to NoAction.  The app
-//     uses soft-deletes so this never triggers in practice.
-//   * Unique- and indexed- string columns get explicit @db.NVarChar(190) so
-//     they fit the 900-byte SQL Server index key limit.
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
   id            Int        @id @default(autoincrement())
-  email         String     @unique @db.NVarChar(190)
-  passwordHash  String     @db.NVarChar(255)
+  email         String     @unique
+  passwordHash  String
   // Allowed values: CANDIDATE, EMPLOYER, ADMIN
-  role          String     @db.NVarChar(20)
+  role          String
   isActive      Boolean    @default(true)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -46,9 +33,9 @@ model Candidate {
 
   fullName      String
   headline      String?
-  bio           String?   @db.NVarChar(Max)
+  bio           String?
   phone         String?
-  location      String?   @db.NVarChar(190)
+  location      String?
   profilePic    String?
   resumeUrl     String?
   websiteUrl    String?
@@ -88,12 +75,12 @@ model Employer {
 
 model Company {
   id          Int       @id @default(autoincrement())
-  name        String    @unique @db.NVarChar(190)
-  slug        String    @unique @db.NVarChar(190)
-  description String?   @db.NVarChar(Max)
+  name        String    @unique
+  slug        String    @unique
+  description String?
   website     String?
   logoUrl     String?
-  industry    String?   @db.NVarChar(190)
+  industry    String?
   size        String?
   location    String?
 
@@ -110,8 +97,8 @@ model Company {
 
 model Skill {
   id          Int       @id @default(autoincrement())
-  name        String    @unique @db.NVarChar(190)
-  slug        String    @unique @db.NVarChar(190)
+  name        String    @unique
+  slug        String    @unique
 
   candidateSkills CandidateSkill[]
   jobSkills       JobSkill[]
@@ -132,8 +119,7 @@ model JobSkill {
   jobId     Int
   skillId   Int
   required  Boolean @default(true)
-  // NoAction on job to avoid multi-path cascade with Skill (SQL Server limit)
-  job       Job     @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@id([jobId, skillId])
@@ -149,7 +135,7 @@ model Education {
   fieldOfStudy String?
   startDate   DateTime?
   endDate     DateTime?
-  description String?   @db.NVarChar(Max)
+  description String?
 }
 
 model Experience {
@@ -162,7 +148,7 @@ model Experience {
   startDate   DateTime?
   endDate     DateTime?
   current     Boolean   @default(false)
-  description String?   @db.NVarChar(Max)
+  description String?
 }
 
 model Certification {
@@ -178,29 +164,28 @@ model Certification {
 
 model Job {
   id              Int             @id @default(autoincrement())
-  title           String          @db.NVarChar(190)
-  slug            String          @unique @db.NVarChar(190)
-  description     String          @db.NVarChar(Max)
-  category        String?         @db.NVarChar(190)
-  location        String?         @db.NVarChar(190)
+  title           String
+  slug            String          @unique
+  description     String
+  category        String?
+  location        String?
   // Allowed values: REMOTE, ONSITE, HYBRID
-  jobMode         String          @default("ONSITE") @db.NVarChar(20)
+  jobMode         String          @default("ONSITE")
   // Allowed values: FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP, TEMPORARY
-  jobType         String          @default("FULL_TIME") @db.NVarChar(20)
+  jobType         String          @default("FULL_TIME")
   // Allowed values: ENTRY, JUNIOR, MID, SENIOR, LEAD, EXECUTIVE
-  experienceLevel String          @default("MID") @db.NVarChar(20)
+  experienceLevel String          @default("MID")
   salaryMin       Int?
   salaryMax       Int?
-  currency        String          @default("USD") @db.NVarChar(10)
+  currency        String          @default("USD")
   // Allowed values: DRAFT, PUBLISHED, CLOSED, REMOVED
-  status          String          @default("PUBLISHED") @db.NVarChar(20)
+  status          String          @default("PUBLISHED")
   applicationDeadline DateTime?
 
   companyId       Int
   company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   postedById      Int
-  // NoAction to avoid Company→Job double-cascade with Employer
-  postedBy        Employer        @relation(fields: [postedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  postedBy        Employer        @relation(fields: [postedById], references: [id], onDelete: Cascade)
 
   jobSkills       JobSkill[]
   applications    Application[]
@@ -226,13 +211,12 @@ model Application {
   jobId       Int
   candidateId Int
   // Allowed values: APPLIED, UNDER_REVIEW, INTERVIEW, REJECTED, HIRED, WITHDRAWN
-  status      String    @default("APPLIED") @db.NVarChar(20)
-  coverLetter String?   @db.NVarChar(Max)
+  status      String    @default("APPLIED")
+  coverLetter String?
   resumeUrl   String?
-  notes       String?   @db.NVarChar(Max)
+  notes       String?
 
-  // NoAction on job to break the User→Application multi-path cycle
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime  @default(now())
@@ -246,8 +230,7 @@ model SavedJob {
   candidateId Int
   jobId       Int
   candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  // NoAction on job to break the User→SavedJob multi-path cycle
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
   savedAt     DateTime  @default(now())
 
   @@id([candidateId, jobId])
@@ -259,9 +242,9 @@ model Notification {
   userId    Int
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Allowed values: APPLICATION_UPDATE, NEW_MATCHING_JOB, INTERVIEW_INVITE, SYSTEM
-  type      String            @db.NVarChar(40)
+  type      String
   title     String
-  message   String            @db.NVarChar(Max)
+  message   String
   link      String?
   read      Boolean           @default(false)
   createdAt DateTime          @default(now())
