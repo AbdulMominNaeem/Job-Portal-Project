@@ -1,4 +1,10 @@
 {
-  "buildCommand": "npm install && npx prisma generate && npx prisma db push",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.js" }]
+  "version": 2,
+  "buildCommand": "npm install && npx prisma generate",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
 }
