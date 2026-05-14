@@ -18,3 +18,6 @@ backend/uploads/resumes/*
 !backend/uploads/.gitkeep
 .mssql-setup/setup.log
 .mssql-setup/setup.sql
+
+.vercel
+.env*.local
