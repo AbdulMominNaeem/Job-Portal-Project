@@ -4,14 +4,20 @@ const multer = require('multer');
 const env = require('../config/env');
 const { badRequest } = require('../utils/httpError');
 
-const uploadRoot = path.resolve(env.UPLOAD_DIR);
-if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
+const uploadRoot = env.NODE_ENV === 'production'
+  ? '/tmp/uploads'
+  : path.resolve(env.UPLOAD_DIR);
 
-const subdirs = ['resumes', 'avatars', 'logos'];
-subdirs.forEach((d) => {
-  const dir = path.join(uploadRoot, d);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+try {
+  if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
+  const subdirs = ['resumes', 'avatars', 'logos'];
+  subdirs.forEach((d) => {
+    const dir = path.join(uploadRoot, d);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  });
+} catch (_) {
+  // read-only filesystem — uploads will not persist
+}
 
 const buildStorage = (subdir) =>
   multer.diskStorage({
