@@ -1,3 +1,4 @@
+const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const options = {
@@ -9,7 +10,7 @@ const options = {
       description:
         'REST API for the Job Portal application — candidates, employers, jobs, applications, admin.',
     },
-    servers: [{ url: 'http://localhost:4000/api', description: 'Local' }],
+    servers: [{ url: '/api', description: 'API' }],
     components: {
       securitySchemes: {
         bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -17,7 +18,11 @@ const options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./src/routes/*.js'],
+  apis: [path.join(__dirname, '../routes/*.js')],
 };
 
-module.exports = swaggerJsdoc(options);
+try {
+  module.exports = swaggerJsdoc(options);
+} catch {
+  module.exports = { openapi: '3.0.0', info: { title: 'Job Portal API', version: '1.0.0' }, paths: {} };
+}

@@ -4,10 +4,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const swaggerUi = require('swagger-ui-express');
 
 const env = require('./config/env');
-const swaggerSpec = require('./config/swagger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
@@ -41,8 +39,12 @@ app.use('/uploads', express.static(path.resolve(env.UPLOAD_DIR)));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get('/api/openapi.json', (_req, res) => res.json(swaggerSpec));
+if (env.NODE_ENV !== 'production') {
+  const swaggerUi = require('swagger-ui-express');
+  const swaggerSpec = require('./config/swagger');
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get('/api/openapi.json', (_req, res) => res.json(swaggerSpec));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/candidates', candidateRoutes);
