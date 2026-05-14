@@ -68,7 +68,12 @@ export default function EmployerJobForm() {
       }
       navigate('/employer/jobs');
     } catch (e) {
-      setError(apiError(e));
+      const details = e?.response?.data?.details;
+      if (details?.length) {
+        setError(details.map((d) => `${d.path || 'Field'}: ${d.message}`).join(' • '));
+      } else {
+        setError(apiError(e));
+      }
     } finally {
       setBusy(false);
     }
@@ -92,8 +97,8 @@ export default function EmployerJobForm() {
           <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </div>
         <div className="sm:col-span-2">
-          <label className="label">Description</label>
-          <textarea className="input min-h-[200px]" required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <label className="label">Description <span className="text-slate-400 font-normal">(min 20 characters)</span></label>
+          <textarea className="input min-h-[200px]" required minLength={20} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </div>
         <div>
           <label className="label">Category</label>
